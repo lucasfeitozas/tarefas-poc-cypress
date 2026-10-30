@@ -1,0 +1,5 @@
+[
+  { "title": "Estudar Angular", "description": "Signals e formulários reativos" },
+  { "title": "Escrever testes Cypress", "description": "" },
+  { "title": "Configurar GitHub Actions", "description": "Disparar o E2E a partir do front" }
+]

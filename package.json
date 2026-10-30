@@ -1,0 +1,13 @@
+{
+  "name": "tarefas-poc-cypress",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Testes E2E Cypress do tarefas-poc-front",
+  "scripts": {
+    "cy:open": "cypress open",
+    "test": "cypress run"
+  },
+  "devDependencies": {
+    "cypress": "^16.2.1"
+  }
+}

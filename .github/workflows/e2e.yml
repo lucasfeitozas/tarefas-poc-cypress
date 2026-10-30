@@ -1,0 +1,90 @@
+name: E2E
+
+# Formas de execução:
+#  - workflow_call: a pipeline do tarefas-poc-front chama este workflow passando o build do app como artefato;
+#  - workflow_dispatch: manual, contra uma URL já publicada (ex.: GitHub Pages);
+#  - push/pull_request neste repo: faz o build do front (branch main) e roda os testes contra ele.
+on:
+  workflow_call:
+    inputs:
+      app-artifact:
+        description: Nome do artefato com o build estático do front
+        type: string
+        default: ''
+      base-url:
+        description: URL do app já publicado (usada quando app-artifact não é informado)
+        type: string
+        default: ''
+      cypress-ref:
+        description: Branch/tag do tarefas-poc-cypress com os testes
+        type: string
+        default: main
+  workflow_dispatch:
+    inputs:
+      base-url:
+        description: URL do app a ser validado
+        required: true
+        default: https://lucasfeitozas.github.io/tarefas-poc-front/
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  cypress:
+    runs-on: ubuntu-latest
+    env:
+      CYPRESS_BASE_URL: ${{ inputs.base-url != '' && inputs.app-artifact == '' && inputs.base-url || 'http://127.0.0.1:8080' }}
+      SERVE_LOCAL: ${{ inputs.base-url == '' || inputs.app-artifact != '' }}
+    steps:
+      - name: Checkout dos testes
+        uses: actions/checkout@v4
+        with:
+          # Em workflow_call o checkout padrão seria o repo chamador; fixamos o repo dos testes.
+          repository: lucasfeitozas/tarefas-poc-cypress
+          ref: ${{ inputs.cypress-ref || github.ref }}
+
+      - name: Baixar build do front (artefato da pipeline do front)
+        if: inputs.app-artifact != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.app-artifact }}
+          path: app
+
+      - name: Checkout do front (main)
+        if: inputs.app-artifact == '' && inputs.base-url == ''
+        uses: actions/checkout@v4
+        with:
+          repository: lucasfeitozas/tarefas-poc-front
+          ref: main
+          path: front
+
+      - name: Build do front
+        if: inputs.app-artifact == '' && inputs.base-url == ''
+        working-directory: front
+        run: |
+          npm ci
+          npx ng build --base-href ./
+          mv dist/tarefas-poc-front/browser ../app
+
+      # 127.0.0.1 explícito: no runner, "localhost" pode resolver para IPv6 (::1) e o servidor escuta só em IPv4.
+      - name: Servir o front em 127.0.0.1:8080
+        if: env.SERVE_LOCAL == 'true'
+        run: |
+          npx --yes http-server app -a 127.0.0.1 -p 8080 --silent &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8080/ > /dev/null && exit 0
+            sleep 1
+          done
+          echo "O front não respondeu em http://127.0.0.1:8080" >&2
+          exit 1
+
+      - name: Rodar Cypress
+        uses: cypress-io/github-action@v6
+
+      - name: Screenshots das falhas
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cypress-screenshots
+          path: cypress/screenshots
+          if-no-files-found: ignore
