@@ -29,14 +29,11 @@ on:
     branches: [main]
   pull_request:
 
-env:
-  LOCAL_URL: http://localhost:8080
-
 jobs:
   cypress:
     runs-on: ubuntu-latest
     env:
-      CYPRESS_BASE_URL: ${{ inputs.base-url != '' && inputs.app-artifact == '' && inputs.base-url || 'http://localhost:8080' }}
+      CYPRESS_BASE_URL: ${{ inputs.base-url != '' && inputs.app-artifact == '' && inputs.base-url || 'http://127.0.0.1:8080' }}
       SERVE_LOCAL: ${{ inputs.base-url == '' || inputs.app-artifact != '' }}
     steps:
       - name: Checkout dos testes
@@ -69,12 +66,20 @@ jobs:
           npx ng build --base-href ./
           mv dist/tarefas-poc-front/browser ../app
 
+      # 127.0.0.1 explícito: no runner, "localhost" pode resolver para IPv6 (::1) e o servidor escuta só em IPv4.
+      - name: Servir o front em 127.0.0.1:8080
+        if: env.SERVE_LOCAL == 'true'
+        run: |
+          npx --yes http-server app -a 127.0.0.1 -p 8080 --silent &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8080/ > /dev/null && exit 0
+            sleep 1
+          done
+          echo "O front não respondeu em http://127.0.0.1:8080" >&2
+          exit 1
+
       - name: Rodar Cypress
         uses: cypress-io/github-action@v6
-        with:
-          start: ${{ env.SERVE_LOCAL == 'true' && 'npx --yes http-server app -p 8080 --silent' || '' }}
-          wait-on: ${{ env.CYPRESS_BASE_URL }}
-          wait-on-timeout: 120
 
       - name: Screenshots das falhas
         if: failure()

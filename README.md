@@ -33,7 +33,7 @@ e2e:
     app-artifact: tarefas-front-dist
 ```
 
-O workflow baixa o build do front, serve em `http://localhost:8080` e roda o Cypress. Se algum teste falhar, o job falha e a pipeline do front para antes do deploy.
+O workflow baixa o build do front, serve em `http://127.0.0.1:8080` e roda o Cypress. Se algum teste falhar, o job falha e a pipeline do front para antes do deploy.
 
 Outras formas de execução:
 - **Manual** (Actions > E2E > Run workflow): informe a URL publicada.
